@@ -431,12 +431,23 @@ public class RedisClient {
   public String get(String key) {
     return string(sendInline("GET", key));
   }
+  
+  public byte[] getB(String key) {
+    return b(sendInline("GET", key));
+  }
 
   /**
    * Set the string value as value of the key (String command).
    * The string can't be longer than 1073741824 bytes (1 GB).
    */
   public void set(String key, String value) {
+    sendBulk("SET", key, value);
+  }
+  /**
+   * Set the string value as value of the key (String command).
+   * The string can't be longer than 1073741824 bytes (1 GB).
+   */
+  public void setB(String key, byte[] value) {
     sendBulk("SET", key, value);
   }
 
@@ -457,6 +468,17 @@ public class RedisClient {
   public String[] mget(String... keys) {
     checkNotEmpty(keys);
     return strings(sendInline("MGET", keys));
+  }
+  /**
+   * Get the values of all the specified keys (String command).
+   * If one or more keys don't exist or is not of type String, <code>null</code> is returned instead of the value
+   * of the specified key, but the operation never fails.
+   */
+
+  
+  public byte[][] mgetB(String[] keys) {
+    checkNotEmpty(keys);
+    return bs(sendInline("MGET", keys));
   }
 
   /**
@@ -539,8 +561,12 @@ public class RedisClient {
    * If the key does not exist an empty list is created just before the append operation.
    * If the key exists but is not a List an error is raised.
    */
-  public void rpush(String key, String value) {
-    sendBulk("RPUSH", key, value);
+  public int rpush(String key, String value) {
+    return integer(sendBulk("RPUSH", key, value));
+  }
+  
+  public int rpushB(String key, byte[] value) {
+    return integer(sendBulk("RPUSH", key, value));
   }
 
   /**
@@ -574,6 +600,10 @@ public class RedisClient {
    */
   public String[] lrange(String key, int start, int end) {
     return strings(sendInline("LRANGE", key, String.valueOf(start), String.valueOf(end)));
+  }
+  
+  public byte[][] lrangeB(String key, int start, int end) {
+    return bs(sendInline("LRANGE", key, String.valueOf(start), String.valueOf(end)));
   }
 
   /**
@@ -836,6 +866,10 @@ public class RedisClient {
   public boolean zadd(String key, double score, String value) {
     return bool(sendBulk("ZADD", key, s(score), value));
   }
+  
+  public boolean zaddB(String key, double score, byte[] value) {
+    return bool(sendBulk("ZADD", key, s(score), value));
+  }
 
   /**
    * Remove the specified member from the sorted set value stored at key.
@@ -980,13 +1014,50 @@ public class RedisClient {
    */
   public String[] zrangebyscore(String key, double min, double max, int start, int end) {
     if (start == -1) {
-      return strings(sendInline("ZRANGEBYSCORE", key, s(min), s(max)));
+      return strings(sendInline("ZRANGEBYSCORE", key, doubleToArg(min), doubleToArg(max)));
     }
-    return strings(sendInline("ZRANGEBYSCORE", new String[]{key, s(min), s(max), "LIMIT", s(start), s(end)}));
+    return strings(sendInline("ZRANGEBYSCORE", new String[]{key, doubleToArg(min), doubleToArg(max), "LIMIT", s(start), s(end)}));
+  }
+  
+  public byte[][] zrangebyscoreB(String key, double min, double max, int start, int end) {
+    if (start == -1) {
+      return bs(sendInline("ZRANGEBYSCORE", key, doubleToArg(min), doubleToArg(max)));
+    }
+    return bs(sendInline("ZRANGEBYSCORE", new String[]{key, doubleToArg(min), doubleToArg(max), "LIMIT", s(start), s(end)}));
   }
 
   public String[] zrangebyscore(String key, double min, double max) {
     return zrangebyscore(key, min, max, -1, -1);
+  }
+  
+  public String[] zrevrangebyscore(String key, double min, double max, int start, int end) {
+    if (start == -1) {
+      return strings(sendInline("ZREVRANGEBYSCORE", key, doubleToArg(min), doubleToArg(max)));
+    }
+    return strings(sendInline("ZREVRANGEBYSCORE", new String[]{key, doubleToArg(min), doubleToArg(max), "LIMIT", s(start), s(end)}));
+  }
+  
+  public byte[][] zrevrangebyscoreB(String key, double min, double max, int start, int end) {
+    if (start == -1) {
+      return bs(sendInline("ZREVRANGEBYSCORE", key, doubleToArg(min), doubleToArg(max)));
+    }
+    return bs(sendInline("ZREVRANGEBYSCORE", new String[]{key, doubleToArg(min), doubleToArg(max), "LIMIT", s(start), s(end)}));
+  }
+
+  public String[] zrevrangebyscore(String key, double min, double max) {
+    return zrangebyscore(key, min, max, -1, -1);
+  }
+  
+  /**
+   * min and max can be -inf and +inf, so that you are not required to know what's the greatest 
+   * or smallest element in order to take, for instance, elements "up to a given value".
+   * @return the double as a special string or as a string
+   */
+  private String doubleToArg(double value){
+    
+    if(value == Double.MIN_VALUE) return "-inf";
+    if(value == Double.MAX_VALUE) return "+inf";
+    return s(value);
   }
 
   /**
@@ -1006,7 +1077,7 @@ public class RedisClient {
    * @return the number of elements removed
    */
   public int zremrangebyscore(String key, double min, double max) {
-    return integer(sendInline("ZREMRANGEBYSCORE", key, s(min), s(max)));
+    return integer(sendInline("ZREMRANGEBYSCORE", key, doubleToArg(min), doubleToArg(max)));
   }
 
   /**
@@ -1549,8 +1620,14 @@ public class RedisClient {
   private Object sendBulk(String cmd, String argument, String data) {
     return sendBulk(cmd, new String[]{argument}, data);
   }
+  private Object sendBulk(String cmd, String argument, byte[] data) {
+    return sendBulk(cmd, new String[]{argument}, data);
+  }
 
   private Object sendBulk(String cmd, String argument1, String argument2, String data) {
+    return sendBulk(cmd, new String[]{argument1, argument2}, data);
+  }
+  private Object sendBulk(String cmd, String argument1, String argument2, byte[] data) {
     return sendBulk(cmd, new String[]{argument1, argument2}, data);
   }
 
@@ -1558,6 +1635,12 @@ public class RedisClient {
     byte[][] datas = new byte[arguments.length + 1][];
     System.arraycopy(bytes(arguments), 0, datas, 0, arguments.length);
     datas[arguments.length] = bytes(data);
+    return sendMultiBulk(cmd, datas);
+  }
+  private Object sendBulk(String cmd, String[] arguments, byte[] data) {
+    byte[][] datas = new byte[arguments.length + 1][];
+    System.arraycopy(bytes(arguments), 0, datas, 0, arguments.length);
+    datas[arguments.length] = data;
     return sendMultiBulk(cmd, datas);
   }
 
@@ -1577,6 +1660,13 @@ public class RedisClient {
    */
   private static final String s(Object o) {
     return String.valueOf(o);
+  }
+  
+  /**
+   * Converts an object (int or double) into a string.
+   */
+  private static final byte[] b(Object o) {
+    return (byte[]) o;
   }
 
   /**
@@ -1628,6 +1718,22 @@ public class RedisClient {
     String[] strings = new String[datas.length];
     for (int i = 0; i < strings.length; i++) {
       strings[i] = string(datas[i]);
+    }
+    return strings;
+  }
+  
+  /**
+   * Converts the given <code>Object[]</code> of <code>byte[]</code> into an array of strings, assuming UTF-8 encoding.
+   * If <code>null</code> is passed, <code>null</code> is returned.
+   */
+  private static byte[][] bs(Object o) {
+    if (o == null) {
+      return null;
+    }
+    Object[] datas = (Object[]) o;
+    byte[][] strings = new byte[datas.length][];
+    for (int i = 0; i < strings.length; i++) {
+      strings[i] = (byte[])datas[i];
     }
     return strings;
   }
