@@ -29,6 +29,7 @@ public class RedisClient {
     private final BufferedInputStream in;
     private final BufferedOutputStream out;
     private boolean transaction;
+    private int queued = 0;
 
     /**
      * Constructs a new socket connection to the Redis server, setting up buffered input and output streams.
@@ -89,17 +90,35 @@ public class RedisClient {
      * an array of data byte[]s, an integer or an Redis exception is raised.
      */
     private Object answer() throws IOException {
-      String answer = readLine();
-      if (answer.length() == 0) {
-        throw new RedisException("missing answer");
-      }
+      queued += 1;
       if (transaction) {
-        if (answer.startsWith("-")) {
-          throw new RedisException(answer.substring(1));
-        }
+        
+//        if (answer.startsWith("-")) {
+//          throw new RedisException(answer.substring(1));
+//        }
         return null;
       }
-      return error(parse(answer));
+      int dequeued = queued;
+      queued = 0;
+      if(dequeued == 1){
+        String answer = readLine();
+        if (answer.length() == 0) {
+          throw new RedisException("missing answer");
+        }
+        
+        return error(parse(answer));
+      }else{
+        
+        Object[] answers = new Object[dequeued];
+        for (int i = 0; i < dequeued; i++) {
+          String answer = readLine();
+          if (answer.length() == 0) {
+            throw new RedisException("missing answer");
+          }
+          answers[i] = error(parse(answer));
+        }
+        return answers[dequeued - 1];
+      }
     }
 
     private Object parse(String answer) throws IOException {
