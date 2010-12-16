@@ -4,7 +4,7 @@
 package sma;
 
 import junit.framework.AssertionFailedError;
-import junit.framework.TestCase;
+import junit.framework.TestCase ;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -22,10 +22,15 @@ import static sma.RedisClient.SortParam;
  */
 public class RedisClientTest extends TestCase {
   private RedisClient client;
+  
+  private String server = "127.0.0.1";
+  private int port = 6379;
 
   @Override
   protected void setUp() throws Exception {
-    client = new RedisClient();
+    if(System.getProperty("redis.server") != null) server = System.getProperty("redis.server");
+    if(System.getProperty("redis.port") != null) port = Integer.parseInt(System.getProperty("redis.port"));
+    client = new RedisClient(server, port);
     client.selectdb(13);
   }
 
@@ -700,7 +705,7 @@ public class RedisClientTest extends TestCase {
   public void testPubSub() throws InterruptedException {
     client.subscribe("a", "b");
     try {
-      RedisClient otherClient = new RedisClient();
+      RedisClient otherClient = new RedisClient(server, port);
       try {
         assertEquals(1, otherClient.publish("a", "abc"));
         assertEquals(1, otherClient.publish("b", "def"));
@@ -724,7 +729,7 @@ public class RedisClientTest extends TestCase {
   public void testPublish() throws InterruptedException {
     assertEquals(0, client.publish("a", "hello"));
 
-    RedisClient otherClient = new RedisClient();
+    RedisClient otherClient = new RedisClient(server, port);
     otherClient.subscribe("a");
     try {
       assertEquals(1, client.publish("a", "hello"));
@@ -764,7 +769,7 @@ public class RedisClientTest extends TestCase {
           "expected:<" + Arrays.toString(expected) + "> but was:<" + Arrays.toString(actual) + ">");
     }
   }
-
+  
   private static String[] strings(String... strings) {
     return strings;
   }
